@@ -1,0 +1,84 @@
+# GitHub Milestones for Kreuzberg Langflow Components Project
+# due_date format: YYYY-MM-DD (optional — remove or set to null if not using)
+
+- title: "M1 — Foundation"
+  description: >
+    Repo scaffolding, data contracts, shared utilities, and first working
+    extraction component. Everything downstream depends on this milestone.
+  due_date: null
+  issues:
+    - "0.1"
+    - "0.2"
+    - "0.3"
+    - "1.1"
+    - "2.1"
+
+- title: "M2 — Core Pipeline"
+  description: >
+    Chunking and embeddings nodes operational. First end-to-end
+    Extract → Chunk → Embed path working with tests.
+  due_date: null
+  issues:
+    - "4.1"
+    - "4.2"
+    - "5.1"
+
+- title: "M3 — SurrealDB Integration"
+  description: >
+    SurrealDB vector store fully integrated. Full ingest + similarity-search
+    round-trip validated with tests and a sample flow.
+  due_date: null
+  issues:
+    - "6.1"
+    - "6.2"
+    - "5.2"
+
+- title: "M4 — Pipeline & Sample Flows"
+  description: >
+    RAG Prep convenience node and three sample Langflow flow JSONs exported
+    and verified. Users can onboard with 2-node flows.
+  due_date: null
+  issues:
+    - "9.1"
+    - "9.2"
+
+- title: "M5 — Batch, OCR & Caching"
+  description: >
+    Batch extraction with concurrency and caching. OCR backend selection.
+    Error taxonomy finalized.
+  due_date: null
+  issues:
+    - "2.2"
+    - "2.3"
+    - "0.3"
+
+- title: "M6 — Advanced Processing"
+  description: >
+    All post-processing nodes (quality, language, token reduction, keywords),
+    plugin discovery, validators.
+  due_date: null
+  issues:
+    - "3.1"
+    - "3.2"
+    - "3.3"
+    - "3.4"
+    - "7.1"
+    - "7.2"
+    - "7.3"
+
+- title: "M7 — Remote & MCP Nodes"
+  description: >
+    Optional remote Kreuzberg HTTP extraction and MCP client tool-caller nodes.
+  due_date: null
+  issues:
+    - "8.1"
+    - "8.2"
+    - "1.2"
+
+- title: "M8 — Hardening & Docs"
+  description: >
+    End-to-end integration tests, full documentation, gotchas guide, CI green.
+  due_date: null
+  issues:
+    - "10.1"
+    - "10.2"

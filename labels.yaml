@@ -1,0 +1,112 @@
+# GitHub Labels for Kreuzberg Langflow Components Project
+- name: "epic:scaffolding"
+  color: "0075ca"
+  description: "Repo/Scaffolding/Quality Gate"
+
+- name: "epic:input-sources"
+  color: "cfd3d7"
+  description: "Input source loader components"
+
+- name: "epic:extraction"
+  color: "e4e669"
+  description: "Core extraction, OCR, structured output"
+
+- name: "epic:post-processing"
+  color: "d93f0b"
+  description: "Post-processing nodes (quality, language, tokens, keywords)"
+
+- name: "epic:chunking"
+  color: "0e8a16"
+  description: "Chunking strategy components"
+
+- name: "epic:embeddings"
+  color: "1d76db"
+  description: "Embeddings generation nodes"
+
+- name: "epic:surrealdb"
+  color: "5319e7"
+  description: "SurrealDB vector store integration"
+
+- name: "epic:plugins"
+  color: "b60205"
+  description: "Plugins, validators, extensibility"
+
+- name: "epic:server-mcp"
+  color: "f9d0c4"
+  description: "Remote server and MCP client nodes"
+
+- name: "epic:pipeline"
+  color: "bfd4f2"
+  description: "Convenience pipeline nodes and sample flows"
+
+- name: "epic:docs"
+  color: "c5def5"
+  description: "Documentation and maintenance"
+
+- name: "type:component"
+  color: "0075ca"
+  description: "A Langflow component implementation"
+
+- name: "type:utility"
+  color: "e4e669"
+  description: "Shared utility/helper code"
+
+- name: "type:test"
+  color: "0e8a16"
+  description: "Tests and fixtures"
+
+- name: "type:docs"
+  color: "cfd3d7"
+  description: "Documentation only"
+
+- name: "type:infra"
+  color: "fef2c0"
+  description: "CI, packaging, tooling"
+
+- name: "priority:critical"
+  color: "b60205"
+  description: "Must be done first — blocks others"
+
+- name: "priority:high"
+  color: "d93f0b"
+  description: "High priority"
+
+- name: "priority:medium"
+  color: "e4e669"
+  description: "Medium priority"
+
+- name: "priority:low"
+  color: "0e8a16"
+  description: "Low priority / nice to have"
+
+- name: "agent:langflow-engineer"
+  color: "1d76db"
+  description: "Profile 1 — Langflow Component Engineer"
+
+- name: "agent:kreuzberg-adapter"
+  color: "5319e7"
+  description: "Profile 2 — Kreuzberg Adapter Engineer"
+
+- name: "agent:vector-store"
+  color: "0075ca"
+  description: "Profile 3 — Embeddings + Vector Store Engineer"
+
+- name: "agent:qa"
+  color: "0e8a16"
+  description: "Profile 4 — QA / Reliability Engineer"
+
+- name: "status:blocked"
+  color: "b60205"
+  description: "Blocked by another issue"
+
+- name: "status:in-progress"
+  color: "fbca04"
+  description: "Currently being worked on"
+
+- name: "status:ready"
+  color: "0e8a16"
+  description: "Ready to implement"
+
+- name: "codex-ready"
+  color: "0075ca"
+  description: "Self-contained, AI agent can implement end-to-end"

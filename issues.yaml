@@ -1,0 +1,1155 @@
+# GitHub Issues — Kreuzberg Langflow Component Bundle
+# Each issue is self-contained and codex-ready.
+
+# ─────────────────────────────────────────────
+# EPIC 0 — Repo / Scaffolding / Quality Gate
+# ─────────────────────────────────────────────
+
+- id: "0.1"
+  title: "[0.1] Create component bundle skeleton + packaging"
+  milestone: "M1 — Foundation"
+  labels:
+    - "epic:scaffolding"
+    - "type:infra"
+    - "priority:critical"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Create the Langflow custom components package structure for the "Kreuzberg"
+    bundle and set up a test harness.
+
+    ## Tasks
+    - [ ] Add `components/kreuzberg/` directory structure
+    - [ ] Create `__init__.py` exports and registration
+    - [ ] Define base utilities module: `kreuzberg_types.py`, `kreuzberg_utils.py`
+    - [ ] Add linting/formatting config (ruff / black) and test runner config (pytest)
+    - [ ] Add minimal "hello component" test component that appears in Langflow UI
+
+    ## Acceptance Criteria
+    - Package imports successfully from `components/kreuzberg`
+    - A dummy component appears in Langflow UI (or passes registration tests)
+    - `pytest` runs with at least one passing test
+    - `ruff check .` passes with zero errors
+
+    ## Notes
+    This is the foundation — all other issues depend on it. Implement first.
+
+- id: "0.2"
+  title: "[0.2] Define canonical data contracts + metadata schema"
+  milestone: "M1 — Foundation"
+  labels:
+    - "epic:scaffolding"
+    - "type:utility"
+    - "priority:critical"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Create a single source of truth for document/chunk metadata keys and helper
+    functions used by every component in the bundle.
+
+    ## Tasks
+    - [ ] Define `DocumentSource` schema (Data keys): `bytes|path|url`, `filename`,
+          `mime`, `source_id`, `source_uri`
+    - [ ] Define `ExtractedDocument` schema: `text`, `metadata`, `tables?`, `images?`,
+          `pages?`
+    - [ ] Define `Chunk` schema: `id`, `text`, `metadata`, `page?`, `offset_start?`,
+          `offset_end?`
+    - [ ] Implement helpers in `kreuzberg_utils.py`:
+      - `normalize_to_list(data_or_list)` — accept Data or list[Data]
+      - `ensure_metadata_dict(data)` — guarantee metadata is a dict
+      - `hash_id(*parts)` — deterministic SHA256-based ID string
+      - `merge_metadata(base, extra, policy)` — merge with policy: `overwrite|keep|raise`
+    - [ ] Add `docs/metadata_schema.md` documenting every key
+    - [ ] Unit tests for ID stability, normalization, and merge policies
+
+    ## Acceptance Criteria
+    - All future components can `from kreuzberg.kreuzberg_utils import ...`
+    - `hash_id` produces identical output for identical inputs across runs
+    - Tests pass for all helpers
+
+    ## Dependencies
+    - Blocked by: #0.1
+
+- id: "0.3"
+  title: "[0.3] Create shared caching + concurrency utilities"
+  milestone: "M5 — Batch, OCR & Caching"
+  labels:
+    - "epic:scaffolding"
+    - "type:utility"
+    - "priority:high"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Implement a consistent caching and concurrency approach used across
+    extraction, embeddings, and batch operations.
+
+    ## Tasks
+    - [ ] Cache interface class with `get(key) -> bytes | None` and
+          `set(key, value: bytes)` methods
+    - [ ] Filesystem backend with configurable `cache_dir`
+    - [ ] Cache key strategy: `hash_id(component_name, *content_parts)`
+    - [ ] `disable_cache` flag that makes all gets return None
+    - [ ] Concurrency helper: `parallel_map(fn, items, max_workers, mode="thread"|"process")`
+    - [ ] Structured `RunReport` TypedDict: `{duration_ms, cache_hits, cache_misses,
+          errors, item_count}`
+    - [ ] Logging helper that emits RunReport to Python logger
+
+    ## Acceptance Criteria
+    - Cache hit/miss correctly tracked in RunReport
+    - `parallel_map` tests use controlled input to verify ordering is preserved
+    - No flaky tests (no random delays)
+
+    ## Dependencies
+    - Blocked by: #0.2
+
+# ─────────────────────────────────────────────
+# EPIC 1 — Input Sources
+# ─────────────────────────────────────────────
+
+- id: "1.1"
+  title: "[1.1] Implement 'Kreuzberg File Loader' component"
+  milestone: "M1 — Foundation"
+  labels:
+    - "epic:input-sources"
+    - "type:component"
+    - "priority:critical"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    A Langflow node that turns an uploaded file (or file path) into a canonical
+    `DocumentSource` Data payload for downstream extraction.
+
+    ## Inputs
+    | Name | Type | Required | Advanced |
+    |------|------|----------|---------|
+    | file | FileInput | yes (or path) | no |
+    | file_path | str | no (alt to file) | no |
+    | filename_override | str | no | yes |
+    | mime_override | str | no | yes |
+
+    ## Outputs
+    | Name | Type | Description |
+    |------|------|-------------|
+    | document_source | Data | DocumentSource with bytes + metadata |
+
+    ## Tasks
+    - [ ] Implement component class inheriting Langflow base
+    - [ ] Fill `source_id` via `hash_id(filename, content_hash)`
+    - [ ] Handle missing filename gracefully (fallback to `"unknown"`)
+    - [ ] Detect MIME type automatically if not overridden (use `python-magic` or
+          `mimetypes`)
+    - [ ] Unit tests: path input, in-memory file input, missing filename
+
+    ## Acceptance Criteria
+    - Produces Data with `bytes` key and full metadata filled
+    - `source_id` is deterministic for same content
+    - Component docstring visible in Langflow UI tooltip
+
+    ## Dependencies
+    - Blocked by: #0.2
+
+- id: "1.2"
+  title: "[1.2] Implement 'Kreuzberg Bytes Loader' component"
+  milestone: "M7 — Remote & MCP Nodes"
+  labels:
+    - "epic:input-sources"
+    - "type:component"
+    - "priority:medium"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    A node for raw bytes or base64 string → DocumentSource. Useful when receiving
+    content programmatically or from API payloads.
+
+    ## Inputs
+    | Name | Type | Required | Advanced |
+    |------|------|----------|---------|
+    | data_input | str | yes | no |
+    | input_format | enum(bytes_str, base64) | yes | no |
+    | filename | str | yes | no |
+    | mime | str | no | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | document_source | Data |
+
+    ## Tasks
+    - [ ] Decode base64 input safely (raise user-friendly error on bad padding)
+    - [ ] Produce deterministic `source_id = hash_id(filename, decoded_bytes)`
+    - [ ] Unit tests: valid base64, invalid base64 (check error message content),
+          raw bytes string
+
+    ## Acceptance Criteria
+    - Correctly decodes base64 and produces DocumentSource
+    - Invalid base64 shows actionable error message (not raw traceback)
+
+    ## Dependencies
+    - Blocked by: #0.2
+
+# ─────────────────────────────────────────────
+# EPIC 2 — Core Extraction + OCR + Structured
+# ─────────────────────────────────────────────
+
+- id: "2.1"
+  title: "[2.1] Implement 'Kreuzberg Extract' component (core)"
+  milestone: "M1 — Foundation"
+  labels:
+    - "epic:extraction"
+    - "type:component"
+    - "priority:critical"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    The primary extraction node. Accepts a DocumentSource and returns extracted
+    text + optional structured outputs (tables, images, per-page Data).
+
+    ## Basic Inputs
+    | Name | Type | Default |
+    |------|------|---------|
+    | document_source | Data | — |
+    | output_format | enum(text, markdown, structured) | text |
+    | include_metadata | bool | true |
+
+    ## Advanced Inputs
+    | Name | Type | Default |
+    |------|------|---------|
+    | ocr_mode | enum(off, auto, force) | auto |
+    | ocr_backend | enum(tesseract, paddleocr, easyocr) | tesseract |
+    | ocr_languages | list[str] | ["eng"] |
+    | quality_processing | bool | false |
+    | page_tracking | bool | false |
+    | pdf_hierarchy_detection | bool | false |
+    | extract_tables | bool | false |
+    | extract_images | bool | false |
+    | enable_cache | bool | true |
+    | cache_dir | str | ".kreuzberg_cache" |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | extracted_doc | Data |
+    | tables | Data (optional) |
+    | images | Data (optional) |
+    | pages | list[Data] (optional) |
+    | run_report | Data |
+
+    ## Tasks
+    - [ ] Implement Kreuzberg extraction adapter wrapping Kreuzberg API calls
+    - [ ] Normalize outputs into canonical ExtractedDocument schema
+    - [ ] Produce RunReport with extraction timings and OCR backend used
+    - [ ] Map all Kreuzberg/raw exceptions → `KreuzbergComponentError` (see #2.2)
+    - [ ] Unit tests with fixture files: small PDF, DOCX, PNG (OCR path), HTML
+
+    ## Acceptance Criteria
+    - Works for: PDF, DOCX, PNG (OCR), HTML
+    - Page tracking output is stable and includes `page_number` in metadata
+    - RunReport emitted on every run
+    - No raw tracebacks surfaced to user
+
+    ## Dependencies
+    - Blocked by: #0.2, #1.1
+
+- id: "2.2"
+  title: "[2.2] Extraction error taxonomy + user-facing messages"
+  milestone: "M5 — Batch, OCR & Caching"
+  labels:
+    - "epic:extraction"
+    - "type:utility"
+    - "priority:high"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Define a consistent set of exceptions and user-facing messages for all
+    foreseeable failure modes in extraction and OCR.
+
+    ## Tasks
+    - [ ] Create `KreuzbergComponentError(Exception)` base class in
+          `kreuzberg_errors.py`
+    - [ ] Subclasses:
+      - `UnsupportedFormatError` — MIME not supported
+      - `OCRBackendMissingError` — OCR backend not installed
+      - `CorruptDocumentError` — file cannot be parsed
+      - `ExtractionTimeoutError` — extraction exceeded limit
+      - `RemoteExtractionError` — HTTP errors from server node
+    - [ ] Error messages must include:
+      - what failed (component, input file)
+      - likely cause
+      - "next step" hint (e.g., `pip install kreuzberg[paddleocr]`)
+    - [ ] Map common Kreuzberg exceptions to above types
+    - [ ] Tests verifying message *content* (not just exception type) for each class
+
+    ## Acceptance Criteria
+    - Zero raw tracebacks in normal failure scenarios
+    - Each error class has a documented `hint` field
+    - Tests cover at least: missing OCR, unsupported format, corrupt file
+
+    ## Dependencies
+    - Blocked by: #0.1
+
+- id: "2.3"
+  title: "[2.3] Implement 'Kreuzberg Batch Extract' component"
+  milestone: "M5 — Batch, OCR & Caching"
+  labels:
+    - "epic:extraction"
+    - "type:component"
+    - "priority:high"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Batch extraction with concurrency, caching, and per-document error capture.
+    Processes a list of DocumentSources without crashing on partial failures.
+
+    ## Inputs
+    | Name | Type | Default | Advanced |
+    |------|------|---------|---------|
+    | document_sources | list[Data] | — | no |
+    | concurrency | int | 4 | yes |
+    | continue_on_error | bool | true | yes |
+    | enable_cache | bool | true | yes |
+    | cache_dir | str | ".kreuzberg_cache" | yes |
+    | ocr_mode | enum(off, auto, force) | auto | yes |
+    | ocr_backend | enum(tesseract, paddleocr, easyocr) | tesseract | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | extracted_docs | list[Data] |
+    | batch_report | Data |
+
+    ## Tasks
+    - [ ] Use `parallel_map` from #0.3
+    - [ ] Capture per-document errors into `batch_report.errors[]`
+    - [ ] Preserve input ordering in output (order == input order)
+    - [ ] batch_report schema: `{total, success, failed, duration_ms, errors: [{index, filename, error_type, message}]}`
+    - [ ] Tests: 3-item list with 1 intentional failure, ordering verification
+
+    ## Acceptance Criteria
+    - Output list order matches input list order (document)
+    - Failed docs are captured in report, not crashing the run when `continue_on_error=true`
+    - `continue_on_error=false` raises on first failure
+
+    ## Dependencies
+    - Blocked by: #2.1, #0.3
+
+# ─────────────────────────────────────────────
+# EPIC 3 — Post-processing Nodes
+# ─────────────────────────────────────────────
+
+- id: "3.1"
+  title: "[3.1] Implement 'Quality Processing' component"
+  milestone: "M6 — Advanced Processing"
+  labels:
+    - "epic:post-processing"
+    - "type:component"
+    - "priority:medium"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Run Kreuzberg quality processing on extracted Data. Cleans text noise,
+    normalizes whitespace, and optionally handles garbled OCR output.
+
+    ## Inputs
+    | Name | Type | Default | Advanced |
+    |------|------|---------|---------|
+    | documents | Data or list[Data] | — | no |
+    | mode | enum(light, standard, aggressive) | standard | no |
+    | preserve_original | bool | false | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | processed_docs | Data or list[Data] |
+    | report | Data |
+
+    ## Tasks
+    - [ ] Accept both single `Data` and `list[Data]` (normalize internally)
+    - [ ] Add `metadata.quality_processed = true` and `metadata.quality_mode`
+    - [ ] If `preserve_original=true`, add `metadata.original_text`
+    - [ ] Tests: verify `id` unchanged, metadata additions present, empty text
+          handled gracefully
+
+    ## Acceptance Criteria
+    - Source `id` is unchanged after processing
+    - Metadata additions present in output
+    - Empty text returns without crash (logs warning)
+
+    ## Dependencies
+    - Blocked by: #2.1
+
+- id: "3.2"
+  title: "[3.2] Implement 'Language Detection' component"
+  milestone: "M6 — Advanced Processing"
+  labels:
+    - "epic:post-processing"
+    - "type:component"
+    - "priority:medium"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Detect language(s) in extracted text and write results into metadata for
+    downstream filtering or routing.
+
+    ## Inputs
+    | Name | Type | Default | Advanced |
+    |------|------|---------|---------|
+    | documents | Data or list[Data] | — | no |
+    | confidence_threshold | float | 0.8 | yes |
+    | multi_language | bool | false | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | documents | Data or list[Data] (same shape) |
+
+    ## Tasks
+    - [ ] Use `langdetect` or `lingua-language-detector` (whichever Kreuzberg uses)
+    - [ ] Add to metadata:
+      - `language` (ISO 639-1 code, top result)
+      - `language_confidence` (float)
+      - `language_alternatives` (list, if multi_language=true)
+    - [ ] Handle empty text (set `language = "unknown"`, confidence = 0.0)
+    - [ ] Tests: known English paragraph, known French paragraph, empty string
+
+    ## Acceptance Criteria
+    - `metadata.language` and `metadata.language_confidence` always present
+    - Empty text handled without crash
+
+    ## Dependencies
+    - Blocked by: #0.2
+
+- id: "3.3"
+  title: "[3.3] Implement 'Token Reduction' component"
+  milestone: "M6 — Advanced Processing"
+  labels:
+    - "epic:post-processing"
+    - "type:component"
+    - "priority:medium"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Reduce token count before chunking/embedding to stay within model limits
+    or reduce cost.
+
+    ## Inputs
+    | Name | Type | Default | Advanced |
+    |------|------|---------|---------|
+    | documents | Data or list[Data] | — | no |
+    | reduction_policy | enum(light, moderate, aggressive) | moderate | no |
+    | target_token_count | int or null | null | yes |
+    | token_estimator | enum(whitespace, tiktoken_cl100k) | whitespace | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | reduced_docs | Data or list[Data] |
+
+    ## Tasks
+    - [ ] Add to metadata: `tokens_before`, `tokens_after`, `reduction_ratio`
+    - [ ] Deterministic: same input + settings → same output always
+    - [ ] Tests: verify token counts in metadata, verify reduction actually occurs
+
+    ## Acceptance Criteria
+    - Output is deterministic for same input + settings
+    - `metadata.tokens_before` and `metadata.tokens_after` always set
+    - Empty text returns unchanged without crash
+
+    ## Dependencies
+    - Blocked by: #0.2
+
+- id: "3.4"
+  title: "[3.4] Implement 'Keyword Extraction' component"
+  milestone: "M6 — Advanced Processing"
+  labels:
+    - "epic:post-processing"
+    - "type:component"
+    - "priority:medium"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Extract keywords from documents and add them to metadata for downstream
+    filtering, display, or augmented retrieval.
+
+    ## Inputs
+    | Name | Type | Default | Advanced |
+    |------|------|---------|---------|
+    | documents | Data or list[Data] | — | no |
+    | max_keywords | int | 10 | no |
+    | ngram_range | tuple(int,int) | (1, 2) | yes |
+    | algorithm | enum(yake, keybert, rake) | yake | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | documents | Data or list[Data] |
+
+    ## Tasks
+    - [ ] Add `metadata.keywords = [{"term": str, "score": float}]` sorted descending by score
+    - [ ] No crash on short texts (< 5 words)
+    - [ ] Tests: known paragraph fixture with verifiable top keyword, short text,
+          empty text
+
+    ## Acceptance Criteria
+    - `metadata.keywords` always a list (empty list on failure, not missing key)
+    - No crash on texts shorter than ngram_range
+
+    ## Dependencies
+    - Blocked by: #0.2
+
+# ─────────────────────────────────────────────
+# EPIC 4 — Chunking
+# ─────────────────────────────────────────────
+
+- id: "4.1"
+  title: "[4.1] Implement 'Kreuzberg Chunker' component (multi-strategy)"
+  milestone: "M2 — Core Pipeline"
+  labels:
+    - "epic:chunking"
+    - "type:component"
+    - "priority:critical"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Chunk an extracted document into a list of Data chunks using configurable
+    strategies. Each chunk carries deterministic IDs and inherited metadata.
+
+    ## Basic Inputs
+    | Name | Type | Default |
+    |------|------|---------|
+    | extracted_doc | Data | — |
+    | strategy | enum(recursive, semantic, token) | recursive |
+    | chunk_size | int | 512 |
+    | overlap | int | 64 |
+
+    ## Advanced Inputs
+    | Name | Type | Default |
+    |------|------|---------|
+    | preserve_page_boundaries | bool | false |
+    | include_offsets | bool | true |
+    | include_headings | bool | false |
+    | token_estimator_model | str | "cl100k_base" |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | chunks | list[Data] |
+    | chunking_report | Data |
+
+    ## Tasks
+    - [ ] Strategy implementations (or Kreuzberg adapters):
+      - `recursive`: split on paragraph/sentence/word boundaries
+      - `token`: hard token count split with overlap
+      - `semantic`: embedding-similarity based (may require embedder)
+    - [ ] Chunk ID = `hash_id(source_id, offset_start, offset_end, chunk_index)`
+    - [ ] Inherited metadata from parent doc + chunk-specific keys:
+          `chunk_index`, `chunk_total`, `offset_start`, `offset_end`, `page`
+    - [ ] chunking_report: `{chunk_count, strategy, chunk_size, overlap, duration_ms}`
+    - [ ] Tests: overlap correctness, deterministic IDs on re-run, metadata inheritance
+
+    ## Acceptance Criteria
+    - Chunk IDs are deterministic for the same input + settings
+    - `offset_start/end` are correct byte/char offsets
+    - Overlap creates expected content duplication between adjacent chunks
+    - Tests pass for all three strategies
+
+    ## Dependencies
+    - Blocked by: #2.1, #0.2
+
+- id: "4.2"
+  title: "[4.2] Implement 'Chunker (Page Boundaries Guaranteed)' component"
+  milestone: "M2 — Core Pipeline"
+  labels:
+    - "epic:chunking"
+    - "type:component"
+    - "priority:high"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    A chunking variant that guarantees no chunk spans multiple pages when
+    page tracking metadata is available.
+
+    ## Implementation Notes
+    This is a thin wrapper/preset around #4.1 with `preserve_page_boundaries=true`
+    enforced and documented fallback when page info is missing.
+
+    ## Tasks
+    - [ ] If `metadata.pages` is absent on the document, log a warning and
+          fall back to standard chunking (document the behavior)
+    - [ ] Write a test with a 3-page document fixture verifying no cross-page chunks
+    - [ ] Expose same inputs as #4.1 minus `preserve_page_boundaries` (always true)
+
+    ## Acceptance Criteria
+    - No chunk includes text from multiple pages when page tracking data exists
+    - Fallback behavior is documented in docstring and tested
+
+    ## Dependencies
+    - Blocked by: #4.1
+
+# ─────────────────────────────────────────────
+# EPIC 5 — Embeddings
+# ─────────────────────────────────────────────
+
+- id: "5.1"
+  title: "[5.1] Implement 'Kreuzberg Embeddings (FastEmbed)' component"
+  milestone: "M2 — Core Pipeline"
+  labels:
+    - "epic:embeddings"
+    - "type:component"
+    - "priority:critical"
+    - "agent:vector-store"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Generate embeddings for a list of Data chunks using Kreuzberg/FastEmbed-style
+    embedding. Output Langflow `Embeddings` type plus passthrough chunks.
+
+    ## Basic Inputs
+    | Name | Type | Default |
+    |------|------|---------|
+    | chunks | list[Data] | — |
+    | model_name | str | "BAAI/bge-small-en-v1.5" |
+    | batch_size | int | 32 |
+
+    ## Advanced Inputs
+    | Name | Type | Default |
+    |------|------|---------|
+    | normalize_vectors | bool | true |
+    | enable_cache | bool | true |
+    | cache_dir | str | ".kreuzberg_cache/embeddings" |
+    | device | enum(cpu, cuda, auto) | auto |
+    | error_policy | enum(skip, stop) | stop |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | embeddings | Embeddings |
+    | chunks_passthrough | list[Data] (same order as input) |
+    | embedding_records | list[Data] (id, vector, text, metadata) |
+    | report | Data |
+
+    ## Tasks
+    - [ ] Generate embeddings in batches, respecting `batch_size`
+    - [ ] Guarantee output order == input order (document + assert in tests)
+    - [ ] `embeddings` output uses Langflow `Embeddings` type
+    - [ ] `embedding_records` = one Data per chunk with `vector` key (list[float])
+    - [ ] Cache: key = `hash_id(model_name, chunk.id, text_hash)`
+    - [ ] Report: `{model, batch_size, total_chunks, cache_hits, duration_ms}`
+    - [ ] Tests: ordering, length == len(chunks), cache hit on second call
+
+    ## Acceptance Criteria
+    - `len(embeddings) == len(chunks)` always
+    - Ordering guaranteed and tested
+    - Compatible with SurrealDB store node contract (see #6.1)
+
+    ## Dependencies
+    - Blocked by: #4.1, #0.3
+
+- id: "5.2"
+  title: "[5.2] Implement 'Embedding Router' component"
+  milestone: "M3 — SurrealDB Integration"
+  labels:
+    - "epic:embeddings"
+    - "type:component"
+    - "priority:medium"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Allow switching between Kreuzberg internal embeddings and any external
+    Langflow embedding model node without rewiring the rest of the flow.
+
+    ## Inputs
+    | Name | Type | Required |
+    |------|------|---------|
+    | router_mode | enum(kreuzberg, external) | yes |
+    | external_embeddings | Embeddings | only in external mode |
+    | chunks | list[Data] | only in kreuzberg mode |
+    | model_name | str | only in kreuzberg mode |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | embeddings | Embeddings |
+
+    ## Tasks
+    - [ ] In `external` mode: pass through `external_embeddings` unchanged
+    - [ ] In `kreuzberg` mode: delegate to #5.1 embedder logic
+    - [ ] Validation: if mode=external and no input connected, raise clear error
+    - [ ] Tests: both modes, missing input error message
+
+    ## Acceptance Criteria
+    - External mode passes through embeddings without mutation
+    - Error message when required input is disconnected is actionable
+
+    ## Dependencies
+    - Blocked by: #5.1
+
+# ─────────────────────────────────────────────
+# EPIC 6 — SurrealDB Vector Store Integration
+# ─────────────────────────────────────────────
+
+- id: "6.1"
+  title: "[6.1] Update/align SurrealDB store component to Langflow vector-store contract"
+  milestone: "M3 — SurrealDB Integration"
+  labels:
+    - "epic:surrealdb"
+    - "type:component"
+    - "priority:critical"
+    - "agent:vector-store"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Ensure the SurrealDB vector component accepts chunks + embeddings,
+    supports upsert + delete + similarity search, and returns scored results.
+
+    ## Inputs
+    ### Upsert mode
+    | Name | Type | Required | Advanced |
+    |------|------|---------|---------|
+    | chunks | list[Data] | yes | no |
+    | embeddings | Embeddings | yes | no |
+    | table_name | str | yes | no |
+    | connection_url | str | yes | no |
+    | namespace | str | "default" | yes |
+    | database | str | "default" | yes |
+    | id_strategy | enum(chunk_id, uuid, content_hash) | chunk_id | yes |
+
+    ### Search mode
+    | Name | Type | Required | Advanced |
+    |------|------|---------|---------|
+    | query_embedding | list[float] | yes | no |
+    | top_k | int | 5 | no |
+    | metadata_filters | dict | null | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | upsert_report | Data |
+    | search_results | list[Data] (with score in metadata) |
+
+    ## Tasks
+    - [ ] Implement upsert: insert or update records by `id_strategy`
+    - [ ] Implement similarity search using SurrealDB vector index
+    - [ ] Attach `metadata.score` (cosine similarity) to each search result
+    - [ ] Implement metadata filter support in search
+    - [ ] Connection config: URL, credentials via env vars (no hardcoded secrets)
+    - [ ] Tests: upsert then search returns top result, metadata filter test
+
+    ## Acceptance Criteria
+    - Full flow works: Extract (#2.1) → Chunk (#4.1) → Embed (#5.1) → Upsert
+    - Similarity search returns Data list with `metadata.score` set
+    - Credentials never logged or exposed in errors
+
+    ## Dependencies
+    - Blocked by: #5.1
+
+- id: "6.2"
+  title: "[6.2] Implement SurrealDB Embedding Callback compatibility layer"
+  milestone: "M3 — SurrealDB Integration"
+  labels:
+    - "epic:surrealdb"
+    - "type:utility"
+    - "priority:medium"
+    - "agent:vector-store"
+    - "codex-ready"
+  body: |
+    ## Goal
+    If the SurrealDB component expects a callable embedding function rather than
+    a pre-computed `Embeddings` object, provide an adapter so users can connect
+    Kreuzberg Embeddings output directly.
+
+    ## Tasks
+    - [ ] Implement `EmbeddingsCallbackAdapter` wrapping a Langflow `Embeddings`
+          object to match the callable signature SurrealDB expects
+    - [ ] Maintain ordering and ID mapping through the adapter
+    - [ ] Tests: verify same vectors returned through adapter vs direct
+    - [ ] If SurrealDB already accepts `Embeddings` natively (verify first),
+          this issue can be closed as `no-op` with a comment
+
+    ## Acceptance Criteria
+    - User can connect Kreuzberg Embeddings node output to SurrealDB without
+      writing any code
+    - Ordering and IDs are preserved
+
+    ## Dependencies
+    - Blocked by: #6.1, #5.1
+
+# ─────────────────────────────────────────────
+# EPIC 7 — Plugins, Validators, Extensibility
+# ─────────────────────────────────────────────
+
+- id: "7.1"
+  title: "[7.1] Add config/env-driven plugin discovery support"
+  milestone: "M6 — Advanced Processing"
+  labels:
+    - "epic:plugins"
+    - "type:utility"
+    - "priority:low"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Expose plugin discovery paths and enablement via component settings and
+    environment variables — no dynamic code execution.
+
+    ## Tasks
+    - [ ] Read `KREUZBERG_PLUGIN_PATHS` env var (colon-separated dirs)
+    - [ ] Optionally accept `plugin_config_path` component input pointing to
+          a YAML/JSON config file
+    - [ ] Discover and register plugins at component initialization time only
+    - [ ] Log discovered plugin names at INFO level
+    - [ ] Tests: mock plugin path with dummy plugin, verify discovery
+
+    ## Acceptance Criteria
+    - Plugin discovery works via env var without code changes
+    - No `eval` or `exec` used anywhere in discovery path
+    - Missing plugin path logs a warning, does not crash
+
+    ## Dependencies
+    - Blocked by: #0.1
+
+- id: "7.2"
+  title: "[7.2] Implement 'Post-Processor Node' (select installed post-processor)"
+  milestone: "M6 — Advanced Processing"
+  labels:
+    - "epic:plugins"
+    - "type:component"
+    - "priority:low"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    A generic node that lets users pick an installed Kreuzberg post-processor
+    by name and apply it to Data.
+
+    ## Inputs
+    | Name | Type |
+    |------|------|
+    | documents | Data or list[Data] |
+    | processor_name | str (dropdown if listable) |
+    | processor_config | dict (advanced) |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | processed_docs | Data or list[Data] |
+
+    ## Tasks
+    - [ ] If Kreuzberg exposes a registry, populate dropdown dynamically
+    - [ ] Fail gracefully with `KreuzbergComponentError` if named processor
+          is not installed
+    - [ ] Tests: apply known processor, missing processor error message
+
+    ## Acceptance Criteria
+    - Lists available processors if API allows
+    - Missing processor shows actionable install hint
+
+    ## Dependencies
+    - Blocked by: #7.1, #2.2
+
+- id: "7.3"
+  title: "[7.3] Implement 'Validator Node' + ValidationReport output"
+  milestone: "M6 — Advanced Processing"
+  labels:
+    - "epic:plugins"
+    - "type:component"
+    - "priority:low"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Run configured validators on Data and output a structured ValidationReport
+    as a separate Data port.
+
+    ## Inputs
+    | Name | Type | Default | Advanced |
+    |------|------|---------|---------|
+    | documents | Data or list[Data] | — | no |
+    | validators | list[str] | [] | no |
+    | mutate_on_fix | bool | false | yes |
+    | fail_on_error | bool | false | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | documents | Data or list[Data] |
+    | validation_report | Data |
+
+    ## Tasks
+    - [ ] ValidationReport schema: `{total, passed, warnings, errors: [{doc_id, validator, severity, message}]}`
+    - [ ] If `mutate_on_fix=false`, text is never changed
+    - [ ] If `fail_on_error=true`, raise `KreuzbergComponentError` on first error-level finding
+    - [ ] Tests: valid doc passes, invalid doc generates warnings, error escalation
+
+    ## Acceptance Criteria
+    - Text unchanged when `mutate_on_fix=false`
+    - ValidationReport always emitted (even if empty)
+
+    ## Dependencies
+    - Blocked by: #2.2
+
+# ─────────────────────────────────────────────
+# EPIC 8 — Server / MCP Client Nodes
+# ─────────────────────────────────────────────
+
+- id: "8.1"
+  title: "[8.1] Implement 'Kreuzberg HTTP Extract (Remote)' component"
+  milestone: "M7 — Remote & MCP Nodes"
+  labels:
+    - "epic:server-mcp"
+    - "type:component"
+    - "priority:low"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Call a remote Kreuzberg REST server for extraction instead of running
+    locally. Useful for serverless or resource-constrained deployments.
+
+    ## Inputs
+    | Name | Type | Required | Advanced |
+    |------|------|---------|---------|
+    | server_base_url | str | yes | no |
+    | document_source | Data | yes | no |
+    | auth_token | str | no | yes |
+    | timeout_seconds | int | 30 | yes |
+    | max_retries | int | 3 | yes |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | extracted_doc | Data |
+
+    ## Tasks
+    - [ ] POST file bytes to `/extract` endpoint
+    - [ ] Handle 4xx/5xx → `RemoteExtractionError` with status code in message
+    - [ ] Retry on 5xx with exponential backoff (respect `max_retries`)
+    - [ ] Tests with mocked HTTP server (use `responses` or `httpretty`)
+
+    ## Acceptance Criteria
+    - Works with mocked server in tests
+    - Timeout respected
+    - No credentials in error messages or logs
+
+    ## Dependencies
+    - Blocked by: #2.2
+
+- id: "8.2"
+  title: "[8.2] Implement 'Kreuzberg MCP Client Tool Caller' component"
+  milestone: "M7 — Remote & MCP Nodes"
+  labels:
+    - "epic:server-mcp"
+    - "type:component"
+    - "priority:low"
+    - "agent:kreuzberg-adapter"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Call Kreuzberg via MCP tool interface (remote), returning structured Data
+    responses compatible with the rest of the pipeline.
+
+    ## Inputs
+    | Name | Type | Required |
+    |------|------|---------|
+    | mcp_server_url | str | yes |
+    | tool_name | str | yes |
+    | tool_arguments | dict | yes |
+    | auth_token | str | no |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | result | Data |
+
+    ## Tasks
+    - [ ] Implement MCP JSON-RPC style call
+    - [ ] Normalize MCP response into canonical Data schema
+    - [ ] Errors: tool not found, auth failure, malformed response
+    - [ ] Tests with mocked MCP endpoint
+
+    ## Acceptance Criteria
+    - Returns structured Data responses
+    - All errors are user-friendly (no raw stack traces)
+
+    ## Dependencies
+    - Blocked by: #2.2
+
+# ─────────────────────────────────────────────
+# EPIC 9 — Pipeline Convenience + Sample Flows
+# ─────────────────────────────────────────────
+
+- id: "9.1"
+  title: "[9.1] Implement 'Kreuzberg RAG Prep' pipeline convenience component"
+  milestone: "M4 — Pipeline & Sample Flows"
+  labels:
+    - "epic:pipeline"
+    - "type:component"
+    - "priority:high"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    A single composite node that runs: Extract → (Quality) → (Token Reduction)
+    → Chunk → Embed. Users can build a full ingestion flow with just 2 nodes:
+    RAG Prep → SurrealDB Upsert.
+
+    ## Inputs
+    | Name | Type | Default |
+    |------|------|---------|
+    | document_source | Data | — |
+    | chunk_strategy | enum(recursive, token, semantic) | recursive |
+    | chunk_size | int | 512 |
+    | chunk_overlap | int | 64 |
+    | embedding_model | str | "BAAI/bge-small-en-v1.5" |
+    | enable_quality_processing | bool | false |
+    | enable_token_reduction | bool | false |
+    | ocr_mode | enum(off, auto, force) | auto |
+
+    ## Outputs
+    | Name | Type |
+    |------|------|
+    | chunks | list[Data] |
+    | embeddings | Embeddings |
+    | summary_report | Data |
+
+    ## Tasks
+    - [ ] Internally orchestrate calls to Extract, optional Quality, optional
+          Token Reduction, Chunk, Embed components
+    - [ ] summary_report aggregates sub-reports: extraction, chunking, embedding
+    - [ ] All errors bubble up as `KreuzbergComponentError`
+    - [ ] Tests: full pipeline on a small PDF fixture
+
+    ## Acceptance Criteria
+    - Users can go from file to embeddings with one node
+    - summary_report includes timing breakdown per stage
+    - Compatible directly with SurrealDB upsert node (#6.1)
+
+    ## Dependencies
+    - Blocked by: #2.1, #3.1, #3.3, #4.1, #5.1
+
+- id: "9.2"
+  title: "[9.2] Add 3 sample Langflow flows (export JSON)"
+  milestone: "M4 — Pipeline & Sample Flows"
+  labels:
+    - "epic:pipeline"
+    - "type:docs"
+    - "priority:high"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Create three sample Langflow flow JSON exports that demonstrate the
+    complete Kreuzberg + SurrealDB integration.
+
+    ## Flows to Create
+    1. **Single-doc ingest to SurrealDB**
+       - File Loader → Extract → Chunk → Embed → SurrealDB Upsert
+    2. **Batch ingest (folder/list)**
+       - File Loader (multi) → Batch Extract → Chunker → Embed → SurrealDB Upsert
+    3. **Query & retrieve from SurrealDB**
+       - Text Input → Embed (query) → SurrealDB Similarity Search → Result Display
+
+    ## Tasks
+    - [ ] Export each flow as `flows/flow_single_ingest.json`
+    - [ ] Export each flow as `flows/flow_batch_ingest.json`
+    - [ ] Export each flow as `flows/flow_query_retrieve.json`
+    - [ ] Add comments/notes to each node in the flow describing wiring
+    - [ ] Verify each flow imports cleanly and runs with fixture data
+
+    ## Acceptance Criteria
+    - All three flows import without errors in Langflow
+    - Each flow has node notes explaining configuration
+    - Flows use only components from this bundle + core Langflow nodes
+
+    ## Dependencies
+    - Blocked by: #9.1, #6.1
+
+# ─────────────────────────────────────────────
+# EPIC 10 — Docs + Maintenance
+# ─────────────────────────────────────────────
+
+- id: "10.1"
+  title: "[10.1] Write component docs and 'Gotchas' guide"
+  milestone: "M8 — Hardening & Docs"
+  labels:
+    - "epic:docs"
+    - "type:docs"
+    - "priority:medium"
+    - "agent:langflow-engineer"
+    - "codex-ready"
+  body: |
+    ## Goal
+    Comprehensive documentation covering setup, usage, and troubleshooting for
+    the entire Kreuzberg Langflow bundle.
+
+    ## Documents to Create/Update
+    - `README.md` — quickstart: install, load in Langflow, run sample flow
+    - `docs/metadata_schema.md` — all metadata keys (started in #0.2, finalize here)
+    - `docs/ocr_setup.md` — OCR backend installation (Tesseract, PaddleOCR, EasyOCR)
+    - `docs/caching.md` — cache key strategy, invalidation, disabling cache
+    - `docs/surrealdb_integration.md` — how to connect embeddings to SurrealDB
+    - `docs/gotchas.md` — common mistakes, ordering pitfalls, type mismatches
+    - Each component: docstring visible in Langflow UI tooltip (verify in #0.1 work)
+
+    ## Acceptance Criteria
+    - README has working quickstart (tested)
+    - Each component docstring present and shown in UI
+    - Gotchas covers at least 5 real issues discovered during implementation
+
+    ## Dependencies
+    - Blocked by: #9.2 (all components must exist first)
+
+- id: "10.2"
+  title: "[10.2] Add integration tests (end-to-end)"
+  milestone: "M8 — Hardening & Docs"
+  labels:
+    - "epic:docs"
+    - "type:test"
+    - "priority:high"
+    - "agent:qa"
+    - "codex-ready"
+  body: |
+    ## Goal
+    A CI-passing integration test suite exercising the full pipeline with
+    fixture documents and a mocked (or ephemeral) SurrealDB instance.
+
+    ## Test Scenarios Required
+    1. **Extract → Chunk → Embed path**
+       - Input: small PDF fixture
+       - Assert: chunks produced, embeddings length == chunk count, IDs deterministic
+    2. **SurrealDB upsert path (mock or ephemeral)**
+       - Input: chunks + embeddings from scenario 1
+       - Assert: upsert_report shows expected count, no errors
+    3. **Retrieval ranking sanity check**
+       - Insert 3 docs with different content
+       - Query with text similar to doc 1
+       - Assert: doc 1 is top result by score
+
+    ## Tasks
+    - [ ] Add `tests/integration/` directory
+    - [ ] Add pytest fixtures for small PDF, DOCX, PNG
+    - [ ] Mock SurrealDB using `unittest.mock` or spin up ephemeral instance in CI
+    - [ ] Assert ordering, ID stability, score ranking
+    - [ ] Add CI config (GitHub Actions) running integration tests
+
+    ## Acceptance Criteria
+    - All 3 scenarios pass in CI
+    - Tests are deterministic (no random failures)
+    - Fixtures are committed and small (< 100KB total)
+
+    ## Dependencies
+    - Blocked by: #9.1, #6.1
