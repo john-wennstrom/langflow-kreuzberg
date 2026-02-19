@@ -101,7 +101,10 @@ def create_issue(
         if milestone_number:
             cmd += ["--milestone", milestone_number]
         else:
-            print(f"  [warn] Milestone not found: '{milestone_title}' — skipping milestone assignment")
+            print(
+                "  [warn] Milestone not found: "
+                f"'{milestone_title}' — skipping milestone assignment"
+            )
 
     if repo:
         cmd += ["--repo", repo]
@@ -121,7 +124,7 @@ def create_issue(
 def main(path: str = "issues.yaml", repo: str | None = None, dry_run: bool = False) -> None:
     items: list[dict] = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
 
-    print(f"Fetching milestone map from GitHub...")
+    print("Fetching milestone map from GitHub...")
     milestone_map = get_milestone_map(repo)
     print(f"  Found {len(milestone_map)} milestones: {list(milestone_map.keys())}\n")
 
@@ -140,7 +143,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Import issues from YAML to GitHub.")
     parser.add_argument("--file", default="issues.yaml", help="Path to issues YAML file")
-    parser.add_argument("--repo", default=None, help="GitHub repo in owner/name format (owner/name)")
+    parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo in owner/name format (owner/name)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Preview without creating issues")
     args = parser.parse_args()
     main(path=args.file, repo=args.repo, dry_run=args.dry_run)

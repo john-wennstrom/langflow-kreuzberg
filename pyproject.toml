@@ -1,9 +1,26 @@
 [project]
 name = "langflow-kreuzberg"
 version = "0.1.0"
-description = "Add your description here"
+description = "Kreuzberg functionality in a Langflow component bundle"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "pyyaml==6.0.3",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "ruff>=0.12.9",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
