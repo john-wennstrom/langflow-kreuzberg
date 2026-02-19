@@ -42,6 +42,20 @@ Produced by chunking components.
 | `offset_start` | `int \| None` | no | Start character offset |
 | `offset_end` | `int \| None` | no | End character offset |
 
+
+### ExtractedDocument metadata keys
+
+| Key | Type | Description |
+|---|---|---|
+| `source_id` | `str` | Deterministic source identifier from loader stage |
+| `filename` | `str` | Original source filename |
+| `mime` | `str` | Source MIME type |
+| `page_count` | `int` | Number of pages emitted by extractor |
+| `ocr_used` | `bool` | Whether OCR path was used |
+| `ocr_backend` | `str \| None` | OCR backend name when OCR is used |
+| `format` | `str` | Output format requested (`text`, `markdown`, `structured`) |
+| `page_number` | `int` | Present in per-page metadata when page tracking is enabled |
+
 ## Shared helper semantics
 
 - `normalize_to_list(data_or_list)` returns `[]` for `None`, otherwise a list.

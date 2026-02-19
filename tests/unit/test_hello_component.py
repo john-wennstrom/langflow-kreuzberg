@@ -2,6 +2,7 @@
 
 from components.kreuzberg import (
     COMPONENT_REGISTRY,
+    KreuzbergExtractComponent,
     KreuzbergFileLoaderComponent,
     KreuzbergHelloComponent,
     normalize_to_list,
@@ -28,3 +29,7 @@ def test_normalize_to_list_handles_single_and_list_values() -> None:
 
 def test_component_registry_contains_file_loader_component() -> None:
     assert COMPONENT_REGISTRY["KreuzbergFileLoader"] is KreuzbergFileLoaderComponent
+
+
+def test_component_registry_contains_extract_component() -> None:
+    assert COMPONENT_REGISTRY["KreuzbergExtract"] is KreuzbergExtractComponent
