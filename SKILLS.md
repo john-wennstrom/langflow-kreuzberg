@@ -1,222 +1,157 @@
 # SKILLS — Kreuzberg Langflow Component Bundle
 
-> This document defines the required skill areas, competency indicators, and
-> working standards for agents (human or AI) implementing the Kreuzberg
-> Langflow Component Bundle with SurrealDB integration.
+> Required skill areas and working standards for implementing the Kreuzberg Langflow Component Bundle with SurrealDB integration.
 
 ---
 
-## Core Skill Areas (Must Have)
+## Skill 1 — Langflow Component Development
 
-### Skill 1 — Langflow Component Development
+**Component anatomy** — every component inherits from `Component` and defines:
+- Class attributes: `display_name`, `description`, `icon` (Lucide name), `name`
+- `inputs: list[...]` using typed input classes (`StrInput`, `BoolInput`, `DropdownInput`, `FileInput`, `MultilineInput`)
+- `outputs: list[Output]` — each `Output` specifies `name`, `display_name`, and `method`
+- One or more methods named in `Output.method` that implement and return output values
 
-**You must be able to:**
-- Implement custom components using Langflow's standard component base class,
-  `inputs`, `outputs`, and `build()` patterns
-- Use Langflow data types correctly:
-  - `Data` for single documents
-  - `list[Data]` for collections (chunks, batch results)
-  - `Embeddings` for vector outputs
-- Design ports for composability: every component works standalone **and**
-  as a pipeline node
-- Implement "Advanced settings" UX: keep basic inputs visible, expose power-user
-  settings in collapsed/advanced groups
-- Export and verify sample Langflow flow JSON files (flows must import and run)
+**Return types** — annotate consistently; prefer structured types over primitives:
+- `Data` for single documents, `list[Data]` for collections/chunks
+- `Message` for chat-oriented outputs, `Embeddings` for vector outputs
+- Wrap primitives in `Data` or `Message` for visual editor consistency
 
-**Competency Indicators:**
-- Can read an existing Langflow component and replicate its structural conventions
-- Knows how to avoid: type mismatches, list-vs-single normalization bugs,
-  hidden state, and side effects between runs
+**Dynamic fields** — use `dynamic=True` + `real_time_refresh=True` on inputs to trigger `update_build_config()`, which can toggle `show`, `required`, `advanced`, and `options` based on user selections.
 
----
+**Advanced UX** — keep ≤5 inputs visible by default; group power-user settings under `advanced=True`. Use `self.log()` for debug output and `self.status` to surface execution feedback in the UI.
 
-### Skill 2 — Kreuzberg Feature Mapping + Adapters
+**Error handling** — three patterns:
+1. Raise `ValueError` / `ToolException` to halt with an error message
+2. Return `Data(data={"error": str(e)})` to continue flow execution
+3. `self.stop("output_name")` to halt a specific output path only
 
-**You must be able to:**
-- Translate Kreuzberg capabilities into modular, testable adapter classes:
-  extraction, OCR selection, quality processing, chunking, embeddings,
-  keyword extraction, token reduction, batch processing, plugins
-- Wrap all Kreuzberg calls behind a stable adapter boundary so upstream
-  library changes do not break component contracts
-- Convert Kreuzberg outputs into canonical Langflow `Data` schemas
-- Implement robust error handling: catch all library exceptions and re-raise
-  as user-friendly `KreuzbergComponentError` subtypes with actionable hints
+**Tool mode** — set `tool_mode=True` on inputs to enable agent-integrated usage.
 
-**Competency Indicators:**
-- Can implement an adapter layer with clear boundaries, no leaking internals
-- Can enforce schema stability and add backward-compatible fields
+**File layout:**
+```
+components/kreuzberg/
+├── __init__.py      # must import and expose all components
+└── my_component.py
+```
+
+**Competency indicators:**
+- Can replicate structural conventions from an existing component
+- Avoids: type mismatches, list-vs-single normalization bugs, hidden state between runs
 
 ---
 
-### Skill 3 — Embeddings + Vector Store Plumbing
+## Skill 2 — Kreuzberg Adapters
 
 **You must be able to:**
-- Generate embeddings for `list[Data]` chunks and output Langflow `Embeddings`
-- Guarantee stable ordering: `embeddings[i]` always corresponds to `chunks[i]`
+- Translate Kreuzberg capabilities into modular adapter classes (extraction, OCR, chunking, embeddings, keyword extraction, batching, plugins)
+- Wrap all Kreuzberg calls behind a stable adapter boundary — no leaking internals
+- Convert Kreuzberg outputs to canonical Langflow `Data` schemas
+- Catch all library exceptions and re-raise as `KreuzbergComponentError` subtypes with actionable hints
+
+**Competency indicator:** Can enforce schema stability and add backward-compatible fields without breaking existing flows.
+
+---
+
+## Skill 3 — Embeddings + Vector Store Plumbing
+
+**You must be able to:**
+- Generate embeddings for `list[Data]` chunks and output `Embeddings`
+- Guarantee `embeddings[i]` always corresponds to `chunks[i]`
 - Implement deterministic ID mapping and full metadata preservation
-- Understand vector-store contracts:
-  - upsert with deterministic or content-hash IDs
-  - similarity search by query embedding returning scored `list[Data]`
-  - optional metadata filtering
+- Implement vector-store contracts: upsert with deterministic/content-hash IDs, similarity search returning scored `list[Data]`, optional metadata filtering
 - Handle batching, caching (with cache-key strategy), and optional L2 normalization
 
-**Competency Indicators:**
-- Can write tests that verify vector alignment and ID stability across runs
-- Can design SurrealDB table schema and SurrealQL queries for vector search
+**Competency indicator:** Can write tests verifying vector alignment and ID stability across runs.
 
 ---
 
-### Skill 4 — SurrealDB Integration (Vector + Metadata)
+## Skill 4 — SurrealDB Integration
 
 **You must be able to:**
 - Insert and upsert embedding records alongside chunk metadata into SurrealDB
 - Implement similarity search with scored results and optional metadata filters
 - Handle connection config via environment variables (never hardcoded credentials)
 - Write parameterized SurrealQL queries with proper error handling and retries
-- Design an index/table strategy for vector + metadata co-location
 
-**Competency Indicators:**
-- Can write SurrealDB query code with clear parameterization
-- Can design a namespace/table/index layout for vectors + metadata at scale
+**Competency indicator:** Can design a namespace/table/index layout for vectors + metadata at scale.
 
 ---
 
-### Skill 5 — Testing + Quality Engineering
+## Skill 5 — Testing + Quality Engineering
 
 **You must be able to:**
-- Write `pytest` unit tests for each component covering:
-  - happy path
-  - empty input (no crash, structured warning)
-  - invalid types / bad inputs
-  - missing optional dependencies (OCR backend absent)
-  - deterministic output checks (IDs, ordering, token counts)
-- Write at minimum one integration test per epic:
-  - Extract → Chunk → Embed
-  - Embed → SurrealDB Upsert
-  - Query Embed → Similarity Search → Ranked Results
-- Use committed fixtures: small PDF, DOCX, PNG, HTML (< 100 KB total)
-- Verify `RunReport` fields for caching and concurrency features
+- Write `pytest` unit tests covering: happy path, empty input, invalid types, missing optional dependencies, deterministic output (IDs, ordering, token counts)
+- Write integration tests for: Extract→Chunk→Embed, Embed→SurrealDB Upsert, Query→Similarity Search→Ranked Results
+- Use committed fixtures (small PDF, DOCX, PNG, HTML — < 100 KB total)
 
-**Competency Indicators:**
-- Uses `pytest` fixtures and `monkeypatch` / `unittest.mock` effectively
-- Avoids flaky tests: controls randomness, uses deterministic fixtures
-- Can write concurrency tests that verify ordering without timing dependencies
+**Competency indicator:** Uses fixtures and `monkeypatch`/`unittest.mock` effectively; avoids flaky tests.
 
 ---
 
-## Secondary Skill Areas (Nice to Have)
+## Secondary Skills (Nice to Have)
 
-### Skill A — OCR & Document Pipelines
-- Familiarity with Tesseract, PaddleOCR, EasyOCR and their language packs
-- Understanding of scanned PDF preprocessing and OCR quality tradeoffs
-- Gracefully managing optional dependencies (importable guard pattern)
-
-### Skill B — Performance Engineering
-- Batch processing concurrency patterns (thread pool vs. process pool)
-- Cache key strategies, invalidation policies, and memory pressure management
-- Token estimation without loading full models (whitespace approximation)
-
-### Skill C — Security + Deployment Awareness
-- Never dynamic code execution (`eval`, `exec`) in hosted environments
-- Safe file upload handling: size limits, MIME validation, path traversal prevention
-- SSRF considerations for remote fetch components
-- Secrets in environment variables, never in logs or error messages
+| Area | Key Points |
+|------|-----------|
+| **OCR & Doc Pipelines** | Tesseract/PaddleOCR/EasyOCR tradeoffs; importable guard pattern for optional deps |
+| **Performance** | Thread vs. process pool; cache key strategies; token estimation without full models |
+| **Security** | No `eval`/`exec`; safe file upload (size limits, MIME validation); SSRF awareness; secrets in env vars only |
 
 ---
 
 ## Working Standards (Non-Negotiable)
 
-### Standard 1 — Schema Stability
-- Never silently rename or remove metadata keys
-- If a key must change:
-  1. Add the new key alongside the old key (both present)
-  2. Document the change in `docs/metadata_schema.md`
-  3. Add a deprecation note and migration path
-
-### Standard 2 — Determinism
-- Chunk IDs and their ordering must be identical for identical input + settings
-- Embeddings must align 1:1 with input chunks on every run
-- Tests must verify both ID stability and ordering explicitly
-
-### Standard 3 — Defensive Normalization
-- Every component that says it accepts `Data or list[Data]` must normalize internally
-  using `normalize_to_list()` — never assume the caller does it
-- Empty text or empty lists must never raise an unhandled exception; return a
-  structured result with a warning in metadata
-
-### Standard 4 — User-Friendly Errors
-- Zero raw tracebacks in the Langflow UI
-- Every error must include:
-  - **What** failed (component name, input identifier)
-  - **Why** it likely failed (format unsupported, backend missing, network timeout)
-  - **What to do** (install hint, config change, file to check)
-
-### Standard 5 — Component UX
-- Basic inputs visible by default (no more than 5 in basic mode)
-- Advanced inputs grouped under a collapsible "Advanced" section
-- Port names and types are consistent with the conventions in this document
-  across **all** nodes in the bundle
+| Standard | Rule |
+|----------|------|
+| **Schema Stability** | Never silently rename/remove metadata keys; add new key alongside old, document in `docs/metadata_schema.md` |
+| **Determinism** | Chunk IDs and ordering must be identical for identical input + settings; embeddings align 1:1 with chunks |
+| **Defensive Normalization** | Components accepting `Data or list[Data]` must call `normalize_to_list()` internally; empty input → structured result with warning, never unhandled exception |
+| **User-Friendly Errors** | Zero raw tracebacks in Langflow UI; every error states **what** failed, **why**, and **what to do** |
+| **Component UX** | ≤5 basic inputs visible; advanced inputs in collapsible group; port names/types consistent across all bundle nodes |
 
 ---
 
-## Review Checklist (Use on Every PR)
+## PR Review Checklist
 
-### Component Correctness
+**Component correctness**
 - [ ] Inputs/outputs match the contracts documented in the issue
-- [ ] Handles both single `Data` and `list[Data]` inputs where specified
-- [ ] Preserves original metadata and sets deterministic IDs on output
+- [ ] Handles both single `Data` and `list[Data]` where specified; uses `normalize_to_list()`
+- [ ] Preserves original metadata; sets deterministic IDs on output
 - [ ] `len(embeddings) == len(chunks)` enforced and tested (embedding components)
-- [ ] All errors are readable and include actionable hints
+- [ ] All errors are readable with actionable hints
 
-### Tests
-- [ ] Unit tests cover: happy path, empty input, invalid type, common failure
-- [ ] Fixtures are small (< 100 KB each), committed to `tests/fixtures/`
-- [ ] At least one integration test added or updated for the changed path
-- [ ] No `time.sleep()` or random delays in tests
+**Tests**
+- [ ] Unit tests: happy path, empty input, invalid type, common failure
+- [ ] Fixtures small (< 100 KB), committed to `tests/fixtures/`
+- [ ] At least one integration test added/updated for the changed path
+- [ ] No `time.sleep()` or random delays
 
-### Docs
+**Docs**
 - [ ] Component class has a docstring (shown in Langflow UI tooltip)
-- [ ] `docs/metadata_schema.md` updated if any metadata keys were added/changed
+- [ ] `docs/metadata_schema.md` updated if metadata keys added/changed
 - [ ] Sample flow JSON updated if wiring or port names changed
 
 ---
 
 ## Agent Profiles
 
-| Profile | Focus Areas |
-|---------|-------------|
-| **Profile 1 — Langflow Component Engineer** | Component UI/ports/types, schema normalization, sample flows, docs |
-| **Profile 2 — Kreuzberg Adapter Engineer** | Extraction/OCR/processing adapters, error taxonomy, caching hooks |
-| **Profile 3 — Embeddings + Vector Store Engineer** | Embeddings generation, ordering guarantees, batching, SurrealDB upsert/search |
-| **Profile 4 — QA / Reliability Engineer** | Tests, fixtures, determinism checks, integration tests, performance smoke |
+| Profile | Focus |
+|---------|-------|
+| **Langflow Component Engineer** | Component UI/ports/types, `display_name`/`icon`/`inputs`/`outputs`, dynamic fields, schema normalization, sample flows |
+| **Kreuzberg Adapter Engineer** | Extraction/OCR/processing adapters, error taxonomy, caching hooks |
+| **Embeddings + Vector Store Engineer** | Embeddings generation, ordering guarantees, batching, SurrealDB upsert/search |
+| **QA / Reliability Engineer** | Tests, fixtures, determinism checks, integration tests, performance smoke |
 
-Issues are labeled `agent:langflow-engineer`, `agent:kreuzberg-adapter`,
-`agent:vector-store`, or `agent:qa` to indicate the most relevant profile.
+Issues labeled `agent:langflow-engineer`, `agent:kreuzberg-adapter`, `agent:vector-store`, or `agent:qa`.
 
 ---
 
 ## Quickstart for New Agents
 
 1. Read `AGENT.md` for project conventions and overall architecture
-2. Locate the closest existing Langflow component with similar behavior and
-   copy its structural pattern (inputs/outputs, advanced fields grouping)
-3. Implement adapter/utility logic in shared modules (`kreuzberg_utils.py`,
-   `kreuzberg_errors.py`), **not** inside component classes
+2. Find the closest existing component; copy its structural pattern (class attributes, inputs/outputs, advanced field grouping)
+3. Implement adapter/utility logic in shared modules (`kreuzberg_utils.py`, `kreuzberg_errors.py`) — not inside component classes
 4. Write tests for shape/order/ID stability **before** implementing functionality
-5. Finish by updating:
-   - `components/kreuzberg/__init__.py` exports
-   - `docs/metadata_schema.md` if any keys changed
-   - Sample flow JSON if wiring changed
-   - Issue checklist in the PR description
+5. Update: `components/kreuzberg/__init__.py`, `docs/metadata_schema.md` (if keys changed), sample flow JSON (if wiring changed)
 
----
-
-## Deliverable Quality Bar
-
-A component is considered **Done** only when:
-- [ ] Discoverable in the Langflow UI with correct display name and docstring
-- [ ] Composable with adjacent nodes using the correct Langflow types
-- [ ] Tested with committed fixtures (unit + at least one integration path)
-- [ ] Documented well enough that a new user can wire it to SurrealDB without
-      reading source code
-- [ ] All items in the PR Review Checklist above are checked
+**Done** = discoverable in Langflow UI with correct display name and docstring, composable with adjacent nodes, tested with committed fixtures (unit + integration), and all PR checklist items checked.
