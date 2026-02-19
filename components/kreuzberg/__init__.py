@@ -20,6 +20,7 @@ from components.kreuzberg.kreuzberg_utils import (
     merge_metadata,
     normalize_to_list,
 )
+from components.kreuzberg.nodes.file_loader import KreuzbergFileLoaderComponent
 from components.kreuzberg.nodes.hello_component import KreuzbergHelloComponent
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "ComponentPayload",
     "DocumentSource",
     "ExtractedDocument",
+    "KreuzbergFileLoaderComponent",
     "KreuzbergHelloComponent",
     "RunReport",
     "build_cache_key",
@@ -42,4 +44,5 @@ __all__ = [
 
 COMPONENT_REGISTRY = {
     "KreuzbergHello": KreuzbergHelloComponent,
+    "KreuzbergFileLoader": KreuzbergFileLoaderComponent,
 }
