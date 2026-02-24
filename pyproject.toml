@@ -5,6 +5,7 @@ description = "Kreuzberg functionality in a Langflow component bundle"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "lfx",
     "pyyaml==6.0.3",
 ]
 

@@ -5,6 +5,10 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from lfx.custom.custom_component.component import Component
+from lfx.io import BoolInput, DataInput, DropdownInput, MessageTextInput, Output
+from lfx.schema import Data
+
 from components.kreuzberg.kreuzberg_adapter import ExtractionAdapter
 from components.kreuzberg.kreuzberg_errors import (
     CorruptDocumentError,
@@ -13,15 +17,6 @@ from components.kreuzberg.kreuzberg_errors import (
     UnsupportedFormatError,
 )
 from components.kreuzberg.kreuzberg_types import ExtractedDocument
-from components.kreuzberg.langflow_compat import (
-    BoolInput,
-    Component,
-    Data,
-    DataInput,
-    DropdownInput,
-    MessageTextInput,
-    Output,
-)
 
 
 class KreuzbergExtractComponent(Component):
@@ -29,6 +24,7 @@ class KreuzbergExtractComponent(Component):
 
     display_name = "Kreuzberg Extract"
     description = "Extracts text and optional page/table/image outputs from DocumentSource inputs."
+    documentation = "https://github.com/kreuzberg-ai/langflow-kreuzberg"
     icon = "file-search"
     name = "KreuzbergExtract"
 
@@ -219,6 +215,7 @@ class KreuzbergExtractComponent(Component):
             "pages": extracted_doc["pages"],
             "run_report": run_report,
         }
+        self.status = f"Extracted {metadata.get('filename') or 'document'}"
         return self._last_result
 
     def build_extracted_doc(self) -> Data:
