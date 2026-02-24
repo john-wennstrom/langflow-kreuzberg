@@ -15,6 +15,7 @@ from components.kreuzberg.kreuzberg_errors import (
     OCRBackendMissingError,
     RemoteExtractionError,
     UnsupportedFormatError,
+    map_extraction_exception,
 )
 from components.kreuzberg.kreuzberg_types import (
     Chunk,
@@ -58,6 +59,7 @@ __all__ = [
     "parallel_map",
     "UnsupportedFormatError",
     "normalize_to_list",
+    "map_extraction_exception",
 ]
 
 COMPONENT_REGISTRY = {

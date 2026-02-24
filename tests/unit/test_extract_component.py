@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from components.kreuzberg.kreuzberg_errors import CorruptDocumentError, UnsupportedFormatError
+from components.kreuzberg.kreuzberg_errors import (
+    CorruptDocumentError,
+    ExtractionTimeoutError,
+    UnsupportedFormatError,
+)
 from components.kreuzberg.nodes.extract import KreuzbergExtractComponent
 
 
@@ -107,3 +111,26 @@ def test_extract_component_output_methods_return_data_wrapper(
     assert hasattr(extracted_doc, "data")
     assert extracted_doc.data["text"] == "plain text"
     assert run_report.data["item_count"] == 1
+
+
+def test_extract_component_maps_unexpected_errors_to_user_friendly_messages(
+    component: KreuzbergExtractComponent, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = {
+        "bytes": b"dummy",
+        "filename": "slow.pdf",
+        "mime": "application/pdf",
+    }
+
+    def _boom(self: object, _: dict[str, object]) -> str:
+        raise TimeoutError("timed out while parsing")
+
+    monkeypatch.setattr("components.kreuzberg.kreuzberg_adapter.ExtractionAdapter.extract", _boom)
+
+    with pytest.raises(ExtractionTimeoutError) as exc_info:
+        component.build(document_source=payload)
+
+    message = str(exc_info.value)
+    assert "slow.pdf" in message
+    assert "configured timeout" in message
+    assert "Next step" in message
