@@ -33,3 +33,13 @@ def test_component_registry_contains_file_loader_component() -> None:
 
 def test_component_registry_contains_extract_component() -> None:
     assert COMPONENT_REGISTRY["KreuzbergExtract"] is KreuzbergExtractComponent
+
+
+def test_registry_components_define_langflow_node_ports() -> None:
+    hello = KreuzbergHelloComponent()
+    file_loader = KreuzbergFileLoaderComponent()
+
+    assert any(port.name == "name" for port in hello.inputs)
+    assert any(port.name == "greeting" for port in hello.outputs)
+    assert any(port.name == "file" for port in file_loader.inputs)
+    assert any(port.name == "document_source" for port in file_loader.outputs)
