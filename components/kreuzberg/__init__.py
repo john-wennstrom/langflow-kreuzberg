@@ -28,6 +28,7 @@ from components.kreuzberg.kreuzberg_utils import (
     merge_metadata,
     normalize_to_list,
 )
+from components.kreuzberg.nodes.bytes_loader import KreuzbergBytesLoaderComponent
 from components.kreuzberg.nodes.extract import KreuzbergExtractComponent
 from components.kreuzberg.nodes.file_loader import KreuzbergFileLoaderComponent
 from components.kreuzberg.nodes.hello_component import KreuzbergHelloComponent
@@ -41,6 +42,7 @@ __all__ = [
     "DocumentSource",
     "ExtractionTimeoutError",
     "ExtractedDocument",
+    "KreuzbergBytesLoaderComponent",
     "KreuzbergExtractComponent",
     "KreuzbergFileLoaderComponent",
     "KreuzbergComponentError",
@@ -61,5 +63,6 @@ __all__ = [
 COMPONENT_REGISTRY = {
     "KreuzbergHello": KreuzbergHelloComponent,
     "KreuzbergFileLoader": KreuzbergFileLoaderComponent,
+    "KreuzbergBytesLoader": KreuzbergBytesLoaderComponent,
     "KreuzbergExtract": KreuzbergExtractComponent,
 }
