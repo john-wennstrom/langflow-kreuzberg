@@ -13,8 +13,7 @@ from components.kreuzberg.kreuzberg_adapter import ExtractionAdapter
 from components.kreuzberg.kreuzberg_errors import (
     CorruptDocumentError,
     KreuzbergComponentError,
-    OCRBackendMissingError,
-    UnsupportedFormatError,
+    map_extraction_exception,
 )
 from components.kreuzberg.kreuzberg_types import ExtractedDocument
 
@@ -158,12 +157,11 @@ class KreuzbergExtractComponent(Component):
         )
         try:
             text = adapter.extract(source_payload)
-        except (UnsupportedFormatError, OCRBackendMissingError, CorruptDocumentError):
-            raise
         except Exception as exc:  # pragma: no cover - defensive mapping
-            raise KreuzbergComponentError(
-                "Kreuzberg Extract failed while processing the document.",
-                hint="Check input bytes and extraction settings.",
+            raise map_extraction_exception(
+                exc,
+                component=self.display_name,
+                filename=str(source_payload.get("filename") or "<unknown file>"),
             ) from exc
 
         metadata = {
